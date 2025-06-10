@@ -1,0 +1,67 @@
+import os
+import numpy as np
+import torch
+import torchaudio
+import torch.nn as nn
+from glob import glob
+from torchvggish import vggish, vggish_input
+
+class VGGishFeatureExtractor:
+    def __init__(self, output_dim=768):
+        self.device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
+        self.model = vggish()
+        self.model.to(self.device)
+        self.model.eval()
+        self.projection_layer = nn.Linear(128, output_dim)
+        self.projection_layer.to(self.device) # Move projection layer to device
+        self.projection_layer.eval()
+        
+    def extract_features(self, audio_path):
+        waveform, sample_rate = torchaudio.load(audio_path)
+        
+        # Resample to 16 kHz mono
+        waveform = torchaudio.functional.resample(waveform, orig_freq=sample_rate, new_freq=16000)
+        if waveform.shape[0] > 1:
+            waveform = torch.mean(waveform, dim=0, keepdim=True)  # Convert to mono
+
+        # Convert waveform to numpy array
+        waveform_np = waveform.squeeze(0).cpu().numpy()
+        
+        # VGGish expects log mel spectrogram examples in the shape [N, 1, 96, 64]
+        input_batch = vggish_input.waveform_to_examples(waveform_np, sample_rate=16000)
+        # input_tensor = torch.from_numpy(input_batch).float().to(self.device)
+        input_tensor = input_batch.float().to(self.device)
+
+        # print(f"Model device: {next(self.model.parameters()).device}")
+        # print(f"Input tensor device: {input_tensor.device}")
+
+        with torch.no_grad():
+            embeddings = self.model(input_tensor)
+            embeddings = self.projection_layer(embeddings)
+
+        return embeddings.cpu().numpy()
+    
+def main():
+    data_path = "C:/Users/aryan/Documents/Study/Research/IEMOCAP_full_release/Session1/dialog/wav"  # Change to dataset path
+    output_path = "Audio_Output"  # Change output path
+    os.makedirs(output_path, exist_ok=True)
+    
+    extractor = VGGishFeatureExtractor()
+    
+    audio_files = glob(os.path.join(data_path, "*.wav"))  # Adjust file extension if needed
+    
+    for i, audio in enumerate(audio_files):
+        audio_name = os.path.basename(audio).split('.')[0]
+        print(f"Processing {audio_name}...")
+        features = extractor.extract_features(audio)
+
+        # Print the shape of the features for the first processed audio file
+        if i == 0:
+            print(f"Shape of features for {audio_name}: {features.shape}")
+
+        np.save(os.path.join(output_path, f"{audio_name}.npy"), features)
+    
+    print("Audio feature extraction complete!")
+
+if __name__ == "__main__":
+    main()
