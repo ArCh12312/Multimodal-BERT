@@ -16,30 +16,34 @@ class VGGishFeatureExtractor:
         self.projection_layer.to(self.device) # Move projection layer to device
         self.projection_layer.eval()
         
-    def extract_features(self, audio_path):
+    def extract_features(self, audio_path, target_length=256):
         waveform, sample_rate = torchaudio.load(audio_path)
-        
+
         # Resample to 16 kHz mono
         waveform = torchaudio.functional.resample(waveform, orig_freq=sample_rate, new_freq=16000)
         if waveform.shape[0] > 1:
             waveform = torch.mean(waveform, dim=0, keepdim=True)  # Convert to mono
 
-        # Convert waveform to numpy array
         waveform_np = waveform.squeeze(0).cpu().numpy()
-        
-        # VGGish expects log mel spectrogram examples in the shape [N, 1, 96, 64]
-        input_batch = vggish_input.waveform_to_examples(waveform_np, sample_rate=16000)
-        # input_tensor = torch.from_numpy(input_batch).float().to(self.device)
-        input_tensor = input_batch.float().to(self.device)
 
-        # print(f"Model device: {next(self.model.parameters()).device}")
-        # print(f"Input tensor device: {input_tensor.device}")
+        input_batch = vggish_input.waveform_to_examples(waveform_np, sample_rate=16000)
+        input_tensor = input_batch.float().to(self.device)
 
         with torch.no_grad():
             embeddings = self.model(input_tensor)
             embeddings = self.projection_layer(embeddings)
 
-        return embeddings.cpu().numpy()
+        embeddings = embeddings.cpu().numpy()  # Shape: [num_frames, 768]
+
+        # Pad or truncate to fixed length
+        num_frames = embeddings.shape[0]
+        if num_frames < target_length:
+            padding = np.zeros((target_length - num_frames, embeddings.shape[1]), dtype=np.float32)
+            embeddings = np.vstack([embeddings, padding])
+        else:
+            embeddings = embeddings[:target_length, :]
+
+        return embeddings  # Shape: [target_length, 768]
     
 def main():
     data_path = "C:/Users/aryan/Documents/Study/Research/IEMOCAP_full_release/Session1/dialog/wav"  # Change to dataset path
