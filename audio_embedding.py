@@ -16,13 +16,13 @@ class VGGishFeatureExtractor:
         self.projection_layer.to(self.device) # Move projection layer to device
         self.projection_layer.eval()
         
-    def extract_features(self, audio_path, target_length=256):
+    def extract_features(self, audio_path, target_length=128):
         waveform, sample_rate = torchaudio.load(audio_path)
 
         # Resample to 16 kHz mono
         waveform = torchaudio.functional.resample(waveform, orig_freq=sample_rate, new_freq=16000)
         if waveform.shape[0] > 1:
-            waveform = torch.mean(waveform, dim=0, keepdim=True)  # Convert to mono
+            waveform = torch.mean(waveform, dim=0, keepdim=True)
 
         waveform_np = waveform.squeeze(0).cpu().numpy()
 
@@ -30,42 +30,52 @@ class VGGishFeatureExtractor:
         input_tensor = input_batch.float().to(self.device)
 
         with torch.no_grad():
-            embeddings = self.model(input_tensor)
-            embeddings = self.projection_layer(embeddings)
+            embeddings = self.model(input_tensor)  # [num_frames, 128]
+            embeddings = self.projection_layer(embeddings)  # [num_frames, 768]
 
-        embeddings = embeddings.cpu().numpy()  # Shape: [num_frames, 768]
+        embeddings = embeddings.cpu().numpy()
 
-        # Pad or truncate to fixed length
         num_frames = embeddings.shape[0]
-        if num_frames < target_length:
-            padding = np.zeros((target_length - num_frames, embeddings.shape[1]), dtype=np.float32)
-            embeddings = np.vstack([embeddings, padding])
-        else:
-            embeddings = embeddings[:target_length, :]
 
-        return embeddings  # Shape: [target_length, 768]
+        if num_frames == 0:
+            print(f"Warning: No features extracted from {audio_path}. Returning zeros.")
+            return np.zeros((target_length, 768), dtype=np.float32)
+
+        if num_frames >= target_length:
+            indices = np.linspace(0, num_frames - 1, target_length, dtype=int)
+            sampled_embeddings = embeddings[indices]
+            print(f"Sampled {target_length} features from {num_frames} frames.")
+        else:
+            padding = np.zeros((target_length - num_frames, 768), dtype=np.float32)
+            sampled_embeddings = np.vstack([embeddings, padding])
+            print(f"Padded {num_frames} features to {target_length}.")
+
+        return sampled_embeddings
     
 def main():
-    data_path = "C:/Users/aryan/Documents/Study/Research/IEMOCAP_full_release/Session1/dialog/wav"  # Change to dataset path
-    output_path = "Audio_Output"  # Change output path
-    os.makedirs(output_path, exist_ok=True)
+    base_data_path = "C:/Users/aryan/Documents/Study/Research/IEMOCAP_full_release"
+    base_output_path = "Audio_Output"
     
     extractor = VGGishFeatureExtractor()
     
-    audio_files = glob(os.path.join(data_path, "*.wav"))  # Adjust file extension if needed
-    
-    for i, audio in enumerate(audio_files):
-        audio_name = os.path.basename(audio).split('.')[0]
-        print(f"Processing {audio_name}...")
-        features = extractor.extract_features(audio)
+    for session_num in range(1, 6):
+        data_path = os.path.join(base_data_path, f"Session{session_num}", "dialog", "wav")
+        output_path = os.path.join(base_output_path, f"Session{session_num}")
+        os.makedirs(output_path, exist_ok=True)
+        
+        audio_files = glob(os.path.join(data_path, "*.wav"))
+        
+        for i, audio in enumerate(audio_files):
+            audio_name = os.path.basename(audio).split('.')[0]
+            print(f"Processing {audio_name} in Session{session_num}...")
+            features = extractor.extract_features(audio)
 
-        # Print the shape of the features for the first processed audio file
-        if i == 0:
-            print(f"Shape of features for {audio_name}: {features.shape}")
+            if i == 0:
+                print(f"Shape of features for {audio_name}: {features.shape}")
 
-        np.save(os.path.join(output_path, f"{audio_name}.npy"), features)
+            np.save(os.path.join(output_path, f"{audio_name}.npy"), features)
     
-    print("Audio feature extraction complete!")
+    print("Audio feature extraction for all sessions complete!")
 
 if __name__ == "__main__":
     main()

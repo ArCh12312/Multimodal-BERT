@@ -17,7 +17,7 @@ class BERTFeatureExtractor:
             texts,
             padding=True,
             truncation=True,
-            max_length=256,
+            max_length=125,
             return_tensors='pt'
         )
         input_ids = inputs['input_ids'].to(self.device)

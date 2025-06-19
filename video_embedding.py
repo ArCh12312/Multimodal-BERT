@@ -66,38 +66,46 @@ class ResNet50FeatureExtractor:
         return frames
 
     def extract_features(self, video_path):
-        """Extract features from frames using ResNet50 and FC layer, then truncate/pad."""
+        """Extracts uniformly sampled features from video and maps them to 768-dim."""
         raw_frames = self.extract_frames(video_path)
+        total_frames = len(raw_frames)
+
+        if total_frames == 0:
+            print(f"No frames extracted from {video_path}.")
+            return np.zeros((self.max_frames, 768), dtype=np.float32)
+
+        if total_frames >= self.max_frames:
+            # Uniformly sample 256 frames
+            indices = np.linspace(0, total_frames - 1, self.max_frames, dtype=int)
+            sampled_frames = [raw_frames[i] for i in indices]
+            print(f"Sampled {self.max_frames} frames from {total_frames} total frames.")
+        else:
+            # Use all frames and pad
+            sampled_frames = raw_frames
+            print(f"Padded {video_path}: {total_frames} frames to {self.max_frames} frames.")
+
         extracted_features = []
 
-        for frame in raw_frames:
+        for frame in sampled_frames:
             frame = self.transform(frame)
-            frame = frame.unsqueeze(0).to(self.device)  # Move to device
+            frame = frame.unsqueeze(0).to(self.device)
 
             with torch.no_grad():
                 feature = self.resnet50(frame)
                 feature = feature.view(feature.size(0), -1)
                 feature = self.fc_layer(feature)
 
-            extracted_features.append(feature.squeeze().cpu().numpy())  # Back to CPU for numpy
+            extracted_features.append(feature.squeeze().cpu().numpy())
 
         features_array = np.array(extracted_features)
 
-        num_current_frames = features_array.shape[0]
+        # If padding is needed
+        if features_array.shape[0] < self.max_frames:
+            padding = np.zeros((self.max_frames - features_array.shape[0], 768), dtype=features_array.dtype)
+            features_array = np.vstack((features_array, padding))
 
-        if num_current_frames > self.max_frames:
-            final_features = features_array[:self.max_frames]
-            print(f"Truncated {video_path}: {num_current_frames} frames to {self.max_frames} frames.")
-        elif num_current_frames < self.max_frames:
-            padding_needed = self.max_frames - num_current_frames
-            padding_vector = np.zeros((padding_needed, 768), dtype=features_array.dtype)
-            final_features = np.vstack((features_array, padding_vector))
-            print(f"Padded {video_path}: {num_current_frames} frames to {self.max_frames} frames.")
-        else:
-            final_features = features_array
-            print(f"Processed {video_path}: {num_current_frames} frames (no truncation/padding).")
+        return features_array
 
-        return final_features
 
     def process_videos(self):
         """Processes all .avi videos in the dataset directory."""
@@ -121,13 +129,16 @@ class ResNet50FeatureExtractor:
 
 
 def main():
-    # Set your dataset path here. Make sure it points to a directory containing .avi files.
-    data_path = "C:/Users/aryan/Documents/Study/Research/IEMOCAP_full_release/Session1/dialog/avi/DivX" 
-    # Set the output directory where you want to save the extracted features.
-    output_path = "Video_output" 
-    # Initialize the extractor with the specified paths and the new max_frames parameter
-    extractor = ResNet50FeatureExtractor(data_path, output_path, max_frames=1024)
-    extractor.process_videos()
+    base_data_path = "C:/Users/aryan/Documents/Study/Research/IEMOCAP_full_release"
+    base_output_path = "Video_output"
+    max_frames = 256
+
+    for session_num in range(1, 6):
+        data_path = f"{base_data_path}/Session{session_num}/dialog/avi/DivX"
+        output_path = f"{base_output_path}/Session{session_num}"
+        
+        extractor = ResNet50FeatureExtractor(data_path, output_path, max_frames=max_frames)
+        extractor.process_videos()
 
 if __name__ == "__main__":
     main()
