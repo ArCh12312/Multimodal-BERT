@@ -1,0 +1,40 @@
+Using device: cuda
+
+--- Fold 1 ---
+Dataset initialized with 120 samples, 120 labels
+Dataset initialized with 31 samples, 31 labels
+c:\Users\aryan\AppData\Local\Programs\Python\Python310\lib\site-packages\sklearn\model_selection\_split.py:700: UserWarning: The least populated class in y has only 4 members, which is less than n_splits=5.
+  warnings.warn(
+KL Divergence: 0.2820, MSE: 0.0098
+Fold 1 Weighted F1-score: 0.6774
+Fold 1 Accuracy: 0.6774
+
+--- Fold 2 ---
+Dataset initialized with 121 samples, 121 labels
+Dataset initialized with 30 samples, 30 labels
+KL Divergence: 0.2479, MSE: 0.0083
+Fold 2 Weighted F1-score: 0.6404
+Fold 2 Accuracy: 0.7000
+
+--- Fold 3 ---
+Dataset initialized with 121 samples, 121 labels
+Dataset initialized with 30 samples, 30 labels
+KL Divergence: 0.1922, MSE: 0.0051
+Fold 3 Weighted F1-score: 0.6130
+Fold 3 Accuracy: 0.6333
+
+--- Fold 4 ---
+Dataset initialized with 121 samples, 121 labels
+Dataset initialized with 30 samples, 30 labels
+KL Divergence: 0.2815, MSE: 0.0085
+Fold 4 Weighted F1-score: 0.4552
+Fold 4 Accuracy: 0.4667
+
+--- Fold 5 ---
+Dataset initialized with 121 samples, 121 labels
+Dataset initialized with 30 samples, 30 labels
+KL Divergence: 0.2365, MSE: 0.0078
+Fold 5 Weighted F1-score: 0.5790
+Fold 5 Accuracy: 0.6333
+
+Average Weighted F1-score across folds: 0.6222
