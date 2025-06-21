@@ -7,12 +7,12 @@ class IEMOCAPLoader:
         self.audio_dir = audio_dir
         self.video_dir = video_dir
         self.label_file = label_file
-        self.label_dict = self._load_scene_emotions()
+        self.label_df = self._load_scene_emotions()
         self.dataset = []
 
     def _load_scene_emotions(self):
         df = pd.read_csv(self.label_file)
-        return dict(zip(df["scene_id"], df["scene_emotion"]))
+        return df
 
     def load_dataset(self):
         self.dataset = []  # Clear existing dataset if called again
@@ -30,25 +30,29 @@ class IEMOCAPLoader:
                 print(f"Missing audio or video for {scene_id}, skipping.")
                 continue
 
+            # Read and clean transcript
             with open(transcript_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-                # Extract only the spoken content from each line
-                stripped_lines = []
-                for line in lines:
-                    if ":" in line:
-                        parts = line.split(":", 1)
-                        stripped_lines.append(parts[1].strip())
+                stripped_lines = [
+                    line.split(":", 1)[1].strip() for line in f if ":" in line
+                ]
                 transcript = "\n".join(stripped_lines)
 
 
-            label = self.label_dict.get(scene_id, "Unknown")
+            # Get emotion distribution for the scene
+            emotion_row = self.label_df[self.label_df["scene_id"] == scene_id]
+            if emotion_row.empty:
+                print(f"No label for {scene_id}, skipping.")
+                continue
 
+            # Convert the row to a dictionary of emotion counts (excluding scene_id)
+            emotion_counts = emotion_row.drop(columns=["scene_id"]).iloc[0].to_dict()
+            
             self.dataset.append({
                 "scene_id": scene_id,
                 "transcript": transcript,
                 "audio_path": audio_path,
                 "video_path": video_path,
-                "label": label
+                "emotion_counts": emotion_counts  # Dictionary of emotion: count
             })
 
         return self.dataset
