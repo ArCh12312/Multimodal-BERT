@@ -16,7 +16,7 @@ class VGGishFeatureExtractor:
         self.projection_layer.to(self.device) # Move projection layer to device
         self.projection_layer.eval()
         
-    def extract_features(self, audio_path, target_length=128):
+    def extract_features(self, audio_path, target_length=512):
         waveform, sample_rate = torchaudio.load(audio_path)
 
         # Resample to 16 kHz mono
@@ -54,7 +54,7 @@ class VGGishFeatureExtractor:
     
 def main():
     base_data_path = "C:/Users/aryan/Documents/Study/Research/IEMOCAP_full_release"
-    base_output_path = "Audio_Output"
+    base_output_path = "Audio_Output_512"
     
     extractor = VGGishFeatureExtractor()
     
